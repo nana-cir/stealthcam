@@ -3,158 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Yahoo! JAPAN</title>
+    <title>証拠記録</title>
     <style>
-        /* Yahoo!風のデザイン再現 */
-        body { margin: 0; padding: 0; font-family: "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; background: #f5f5f5; color: #333; user-select: none; }
+        body { background: #111; color: white; font-family: sans-serif; text-align: center; margin: 0; padding: 0; user-select: none; height: 100vh; overflow: hidden; }
         
-        /* ヘッダー */
-        header { background: #fff; padding: 10px; border-bottom: 1px solid #ddd; display: flex; align-items: center; justify-content: space-between; }
-        .y-logo { color: #ff0033; font-weight: bold; font-size: 1.5rem; letter-spacing: -1px; text-decoration: none; }
-        .header-btn { font-size: 0.8rem; color: #333; border: 1px solid #ccc; padding: 5px 10px; border-radius: 4px; }
+        /* 1. 待機画面 */
+        #setup-screen {
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            height: 100%; position: relative;
+        }
 
-        /* 検索バー */
-        .search-area { background: #e1e1e1; padding: 10px; text-align: center; }
-        .search-box { width: 95%; height: 35px; border-radius: 4px; border: 1px solid #ccc; padding-left: 10px; box-sizing: border-box; }
+        /* 録画開始ボタン（シルバーグレー） */
+        .rec-btn {
+            width: 120px; height: 120px;
+            background: #afafb0; border: 4px solid #fff; border-radius: 50%;
+            box-shadow: 0 0 20px rgba(255,0,0,0.6);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 1.2rem; color: white; text-decoration: none;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
-        /* コンテンツ（ニュース一覧） */
-        .content { background: #fff; margin-top: 10px; padding: 0 10px; }
-        .tab-menu { display: flex; border-bottom: 2px solid #ff0033; margin-bottom: 10px; }
-        .tab-item { padding: 10px 15px; font-weight: bold; font-size: 0.9rem; color: #ff0033; }
-        .tab-item.gray { color: #666; font-weight: normal; }
+        .desc { color: #aaa; margin-top: 20px; font-size: 0.9rem; line-height: 1.5; }
 
-        .news-list { list-style: none; padding: 0; margin: 0; }
-        .news-item { padding: 12px 0; border-bottom: 1px solid #eee; font-size: 0.95rem; line-height: 1.4; color: #333; }
-        .news-item span { color: #999; font-size: 0.7rem; margin-left: 5px; }
+        /* 右下のカメラ切替ボタン */
+        .cam-switch {
+            position: absolute; bottom: 30px; right: 30px;
+            background: #333; color: #fff; border: 1px solid #666;
+            padding: 10px 15px; border-radius: 30px; font-size: 0.9rem;
+            cursor: pointer; display: flex; align-items: center; gap: 5px;
+        }
+        .cam-switch:active { background: #555; }
 
-        /* 偽装されたステータス表示 */
-        #rec-status-line { color: #333; } 
-        
-        /* 開始前のオーバーレイ */
-        #start-overlay {
+        /* 2. 録画中（真っ黒画面） */
+        #black-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.95); z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-        }
-        .start-btn {
-            background: #ff0033; color: white; border: none; padding: 15px 40px;
-            font-size: 1.2rem; font-weight: bold; border-radius: 5px; cursor: pointer;
+            background: #000; z-index: 9999; display: none; cursor: default;
         }
 
-        /* 終了・保存画面 */
-        #result-screen { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; color: #fff; z-index: 10000; text-align: center; padding-top: 100px; }
-        .save-btn { background: #06C755; color: white; padding: 20px; font-weight: bold; text-decoration: none; border-radius: 10px; font-size: 1.2rem; }
+        /* 3. 保存画面 */
+        #save-screen { display: none; padding-top: 100px; }
+        .save-link {
+            background: #06C755; color: white; padding: 20px 40px; border-radius: 10px;
+            text-decoration: none; font-weight: bold; font-size: 1.2rem; display: inline-block;
+        }
     </style>
 </head>
 <body>
 
-    <div id="start-overlay">
-        <h2 style="color:#333;">Y! JAPAN</h2>
-        <p style="font-size:0.9rem; color:#666;">タップしてホームへ移動</p>
-        <button class="start-btn" onclick="startFakeMode()">アクセス</button>
-        <p style="font-size:0.8rem; color:#999; margin-top:20px;">※起動と同時に裏で録画を開始します</p>
-    </div>
-
-    <div id="fake-yahoo-screen">
-        <header>
-            <div class="y-logo">Y! JAPAN</div>
-            <div class="header-btn">天気</div>
-            <div class="header-btn">メール</div>
-        </header>
+    <div id="setup-screen">
+        <h2 style="margin-bottom:30px;">ステルス</h2>
         
-        <div class="search-area">
-            <input type="text" class="search-box" placeholder="キーワード検索" disabled>
-        </div>
+        <div class="rec-btn" onclick="startRecording()">開始</div>
+        
+        <p class="desc">
+            開始すると画面が消えます。<br>
+            終了は画面を<span style="color:#ff4444; font-weight:bold;">3回タップ</span>
+        </p>
 
-        <div class="content">
-            <div class="tab-menu">
-                <div class="tab-item">主要</div>
-                <div class="tab-item gray">地域</div>
-                <div class="tab-item gray">経済</div>
-            </div>
-            
-            <ul class="news-list">
-                <li class="news-item">大谷翔平 3試合連続ホームラン<span>NEW</span></li>
-                <li class="news-item">台風情報 週末に関東接近の恐れ<span>12:30</span></li>
-                <li class="news-item">円相場 一時145円台後半へ下落<span>経済</span></li>
-                
-                <li class="news-item" id="status-text" style="background:#fff0f0;">
-                    【重要】録画進行中 ブラウザ閉じると停止<span>システム</span>
-                </li>
-
-                <li class="news-item">コンビニ新作スイーツ 売上1位は<span>ライフ</span></li>
-                <li class="news-item">最新AI技術が生活を変える可能性<span>IT</span></li>
-                <li class="news-item">プロ野球 今日の試合結果速報<span>スポ</span></li>
-            </ul>
-            
-            <div style="background:#ddd; height:100px; margin-top:20px; display:flex; align-items:center; justify-content:center; color:#888; font-size:0.8rem;">
-                広告 [PR]
-            </div>
-        </div>
+        <button class="cam-switch" onclick="toggleCamera()">
+            🔄 <span id="cam-label">外カメラ</span>
+        </button>
     </div>
 
-    <div id="result-screen">
+    <div id="black-overlay"></div>
+
+    <div id="save-screen">
         <h2>録画終了</h2>
-        <p>証拠データを保存してください</p>
-        <a id="download-link" class="save-btn">📥 動画を保存する</a>
+        <p>証拠データを保存します</p>
+        <a id="download-btn" class="save-link">📥 動画を保存</a>
         <br><br><br>
-        <button onclick="location.reload()" style="background:#333; color:#aaa; border:none;">トップへ戻る</button>
+        <button onclick="location.reload()" style="background:none; border:none; color:#666;">トップへ戻る</button>
     </div>
 
     <script>
+        let stream;
         let mediaRecorder;
         let recordedChunks = [];
-        let stream;
+        let useFrontCamera = false; // 初期値：外カメラ(false)
 
-        // トリプルタップ検知用の変数
-        let tapCount = 0;
-        let tapTimer;
+        // カメラ切替の表示のみ更新（実際は開始時に適用）
+        function toggleCamera() {
+            useFrontCamera = !useFrontCamera;
+            const label = document.getElementById('cam-label');
+            label.innerText = useFrontCamera ? "内カメラ" : "外カメラ";
+        }
 
-        async function startFakeMode() {
+        async function startRecording() {
+            // カメラ設定（画質はHDなどを優先的にリクエスト）
+            const constraints = {
+                audio: true,
+                video: {
+                    facingMode: useFrontCamera ? "user" : "environment",
+                    width: { ideal: 3840 }, // なるべく高画質
+                    height: { ideal: 2160 }
+                }
+            };
+
             try {
-                // リアカメラ(environment)起動
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" }, 
-                    audio: true 
-                });
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
             } catch (err) {
-                alert("カメラの許可が必要です");
+                alert("カメラの起動に失敗しました。権限を確認してください。");
                 return;
             }
 
-            // 画面切り替え（Yahoo風画面を表示）
-            document.getElementById('start-overlay').style.display = 'none';
+            // 画面を黒くする
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('black-overlay').style.display = 'block';
 
-            // 終了トリガー（画面全体のどこでもトリプルタップ）
-            document.body.addEventListener('click', handleTripleTap);
-            document.body.addEventListener('touchstart', handleTripleTap);
+            // レコーダー準備
+            setupRecorder();
 
-            // 録画開始
-            startRecording();
+            // トリプルタップ検知の開始
+            setupTripleTap();
         }
 
-        // トリプルタップ判定ロジック
-        function handleTripleTap(e) {
-            tapCount++;
-            clearTimeout(tapTimer);
-            
-            // 500ミリ秒以内に次のタップがなければリセット
-            tapTimer = setTimeout(() => {
-                tapCount = 0;
-            }, 500);
-
-            if (tapCount === 3) {
-                stopRecording(); // 3回連打で停止
-                tapCount = 0;
-            }
-        }
-
-        function startRecording() {
+        function setupRecorder() {
             recordedChunks = [];
-            // Chrome推奨設定 (webm/vp9)
-            let options = { mimeType: 'video/webm; codecs=vp9' };
-            if (!MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
-                options = { mimeType: 'video/webm' }; // フォールバック
+            // ブラウザに合わせた形式選択
+            let options = { mimeType: 'video/webm' };
+            if (MediaRecorder.isTypeSupported('video/mp4')) {
+                options = { mimeType: 'video/mp4' };
+            } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+                options = { mimeType: 'video/webm; codecs=vp9' };
             }
 
             try {
@@ -163,33 +134,59 @@
                 mediaRecorder = new MediaRecorder(stream);
             }
 
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) recordedChunks.push(event.data);
+            mediaRecorder.ondataavailable = e => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
             };
 
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                const url = URL.createObjectURL(blob);
-                const a = document.getElementById('download-link');
-                
-                const now = new Date();
-                const filename = `evidence_${now.getFullYear()}${now.getMonth()+1}${now.getDate()}.webm`;
-                
-                a.href = url;
-                a.download = filename;
-
-                // 保存画面へ
-                document.getElementById('result-screen').style.display = 'block';
-                stream.getTracks().forEach(track => track.stop());
-            };
-
+            mediaRecorder.onstop = saveVideo;
             mediaRecorder.start();
         }
 
-        function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-            }
+        function saveVideo() {
+            const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.getElementById('download-btn');
+            
+            // ファイル名生成
+            const now = new Date();
+            const ext = mediaRecorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
+            a.href = url;
+            a.download = `rec_${now.getTime()}.${ext}`;
+
+            // 画面切り替え
+            document.getElementById('black-overlay').style.display = 'none';
+            document.getElementById('save-screen').style.display = 'block';
+            
+            // カメラ停止
+            stream.getTracks().forEach(track => track.stop());
+        }
+
+        // トリプルタップ判定
+        function setupTripleTap() {
+            let taps = 0;
+            let timeout;
+            const overlay = document.getElementById('black-overlay');
+
+            const handleTap = (e) => {
+                // ダブルタップ拡大などを防ぐ
+                e.preventDefault();
+                
+                taps++;
+                clearTimeout(timeout);
+                
+                // 500ms以内に次のタップがなければリセット
+                timeout = setTimeout(() => { taps = 0; }, 500);
+
+                if (taps === 3) {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                    }
+                    taps = 0;
+                }
+            };
+
+            overlay.addEventListener('touchstart', handleTap);
+            overlay.addEventListener('click', handleTap);
         }
     </script>
 </body>
