@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ボイスレコーダー(映像付)</title>
+    <style>
+        body { background: #000; color: white; font-family: sans-serif; text-align: center; padding: 20px; margin: 0; user-select: none; }
+        
+        /* 開始前の画面 */
+        #start-screen { display: block; padding-top: 30px; }
+        .btn-rec {
+            background: #ff0000; color: white; border: 4px solid #fff;
+            width: 200px; height: 200px; border-radius: 50%;
+            font-size: 1.5rem; font-weight: bold; cursor: pointer;
+            box-shadow: 0 0 20px rgba(255,0,0,0.5);
+        }
+        .instruction { color: #ccc; margin: 20px 0; font-size: 0.9rem; line-height: 1.6; }
+
+        /* 録画中の擬似電源オフ画面 */
+        #stealth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 9999; display: none;
+        }
+
+        /* 完了・保存画面 */
+        #result-screen { display: none; padding-top: 50px; }
+        .save-btn {
+            background: #06C755; color: white; padding: 20px 40px;
+            font-size: 1.2rem; border-radius: 10px; text-decoration: none;
+            display: inline-block; font-weight: bold; margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h2>証拠記録モード</h2>
+        <p class="instruction">
+            ボタンを押すと画面が真っ暗になります。<br>
+            スマホの<b>外カメラ</b>を相手に向けてください。<br>
+            <span style="color:yellow">終了時は画面を「ダブルタップ」します。</span>
+        </p>
+        <button class="btn-rec" onclick="startStealth()">録画開始<br><span style="font-size:0.8rem">(画面OFF)</span></button>
+    </div>
+
+    <div id="stealth-overlay"></div>
+
+    <div id="result-screen">
+        <h2>録画を終了しました</h2>
+        <p>証拠データを保存しますか？</p>
+        <a id="download-link" class="save-btn">📥 動画を保存する</a>
+        <br><br><br>
+        <button onclick="location.reload()" style="background:#333; color:#aaa; border:none; padding:10px;">最初に戻る</button>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        let stream;
+
+        async function startStealth() {
+            try {
+                // 外カメラ (environment) とマイクを起動
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" }, 
+                    audio: true 
+                });
+            } catch (err) {
+                alert("カメラまたはマイクの使用を許可してください。\n設定 > ブラウザ > カメラ/マイク");
+                return;
+            }
+
+            // 画面を真っ暗にする
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('stealth-overlay').style.display = 'block';
+
+            // ダブルタップ判定の準備
+            let lastTap = 0;
+            const overlay = document.getElementById('stealth-overlay');
+            overlay.addEventListener('click', (e) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                if (tapLength < 500 && tapLength > 0) {
+                    stopRecording(); // ダブルタップ成功
+                }
+                lastTap = currentTime;
+            });
+            // 念のためタッチイベントも（反応が悪い時用）
+            overlay.addEventListener('touchstart', (e) => {
+                const currentTime = new Date().getTime();
+                const tapLength = currentTime - lastTap;
+                if (tapLength < 500 && tapLength > 0) {
+                    stopRecording();
+                }
+                lastTap = currentTime;
+            });
+
+            // 録画開始
+            startRecordingLogic();
+        }
+
+        function startRecordingLogic() {
+            recordedChunks = [];
+            // iPhone(Safari)とAndroid(Chrome)の両対応
+            let options = { mimeType: 'video/webm' };
+            if (MediaRecorder.isTypeSupported('video/mp4')) {
+                options = { mimeType: 'video/mp4' }; // Safari用
+            } else if (MediaRecorder.isTypeSupported('video/webm; codecs=vp9')) {
+                options = { mimeType: 'video/webm; codecs=vp9' }; // Chrome高画質
+            }
+
+            try {
+                mediaRecorder = new MediaRecorder(stream, options);
+            } catch (e) {
+                // オプション指定でエラーが出た場合のフォールバック
+                mediaRecorder = new MediaRecorder(stream);
+            }
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                // 録画停止後の処理
+                const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+                const url = URL.createObjectURL(blob);
+                const a = document.getElementById('download-link');
+                
+                // ファイル名生成 (例: rec_20250101_1200.mp4)
+                const now = new Date();
+                const ext = mediaRecorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
+                const filename = `rec_${now.getFullYear()}${now.getMonth()+1}${now.getDate()}_${now.getHours()}${now.getMinutes()}.${ext}`;
+                
+                a.href = url;
+                a.download = filename;
+                
+                // 画面切り替え
+                document.getElementById('stealth-overlay').style.display = 'none';
+                document.getElementById('result-screen').style.display = 'block';
+
+                // カメラ停止
+                stream.getTracks().forEach(track => track.stop());
+            };
+
+            mediaRecorder.start();
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+        }
+    </script>
+</body>
+</html>
